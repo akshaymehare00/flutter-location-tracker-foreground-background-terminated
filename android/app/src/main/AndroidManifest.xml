@@ -11,16 +11,51 @@
     <uses-permission android:minSdkVersion="34" android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Audio Permission -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application
-        android:label="new_location_tracking"
-        android:name="${applicationName}"
+        android:label="Location Tracker"
+        android:name="com.example.new_location_tracking.MainApplication"
         android:icon="@mipmap/ic_launcher"
-        tools:replace="android:label">
+        tools:replace="android:label,android:name">
         
+        <!-- Set default notification sound to silent -->
+        <meta-data
+            android:name="android.app.default_notification_sound"
+            android:resource="@raw/silent" />
+            
         <!-- Background Geolocation Debug Mode (stripped for release builds) -->
         <meta-data android:name="com.transistorsoft.locationmanager.license" android:value="YOUR_LICENSE_KEY_HERE" />
         
+        <!-- Add meta-data for notification sound disabling -->
+        <meta-data
+            android:name="com.transistorsoft.locationmanager.notification.silent"
+            android:value="true" />
+            
+        <!-- Additional sound disabling metadata -->
+        <meta-data
+            android:name="com.transistorsoft.locationmanager.notification.disable_sound"
+            android:value="true" />
+            
+        <meta-data
+            android:name="com.transistorsoft.locationmanager.use_silent_notifications"
+            android:value="true" />
+        
+        <meta-data
+            android:name="com.transistorsoft.locationmanager.notification.sound_file"
+            android:value="silent" />
+            
+        <!-- Notification priority - set to MIN to reduce importance -->
+        <meta-data
+            android:name="com.transistorsoft.locationmanager.notification.priority"
+            android:value="PRIORITY_MIN" />
+        
+        <!-- Ensure notification channels have no sound -->
+        <meta-data
+            android:name="com.transistorsoft.locationmanager.notification.channels"
+            android:resource="@xml/notification_channels" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -15,4 +15,8 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- Disable notification sounds at the system level -->
+    <style name="NotificationStyle">
+        <item name="android:soundUri">@null</item>
+    </style>
 </resources>

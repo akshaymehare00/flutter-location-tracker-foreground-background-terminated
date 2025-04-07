@@ -1,71 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
-import 'services/location_service.dart';
-import 'providers/location_provider.dart';
 import 'screens/home_screen.dart';
-
-// Register headless task handler
-@pragma('vm:entry-point')
-void headlessTaskCallback(bg.HeadlessEvent headlessEvent) async {
-  print('⚙️ [Headless Task] - ${headlessEvent.name}');
-  await LocationService.headlessTask(headlessEvent);
-}
+import 'providers/location_provider.dart';
+import 'services/location_service.dart';
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Register the headless task
-  bg.BackgroundGeolocation.registerHeadlessTask(headlessTaskCallback);
+  // CRITICAL: Silence all sounds before configuring anything
+  await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
+  
+  // Quick config to disable sounds immediately
+  await bg.BackgroundGeolocation.setConfig(bg.Config(
+    debug: false, // CRITICAL - debug mode causes sounds
+    logLevel: bg.Config.LOG_LEVEL_OFF,
+    soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
+    stopOnTerminate: false,
+    startOnBoot: true,
+    enableHeadless: true
+  ));
+  
+  // Play silence sound again to ensure no sound plays
+  await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
+  
+  // Register headless task handler for background/terminated mode
+  bg.BackgroundGeolocation.registerHeadlessTask(LocationService.headlessTask);
   
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  final LocationProvider _locationProvider = LocationProvider();
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeLocationService();
-  }
-
-  Future<void> _initializeLocationService() async {
-    try {
-      print('📱 Initializing location service');
-      // Initialize the location service
-      await LocationService.instance.initialize();
-    } catch (e) {
-      print('❌ Error initializing location service: $e');
-    }
-  }
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _locationProvider,
+    return ChangeNotifierProvider(
+      create: (context) => LocationProvider(),
       child: MaterialApp(
-        title: 'Location Tracking',
+        title: 'Location Tracker',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
         home: const HomeScreen(),
+        debugShowCheckedModeBanner: false,
       ),
     );
-  }
-  
-  @override
-  void dispose() {
-    LocationService.instance.dispose();
-    super.dispose();
   }
 }

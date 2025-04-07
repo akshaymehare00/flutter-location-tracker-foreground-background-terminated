@@ -29,24 +29,43 @@ class LocationProvider extends ChangeNotifier {
   }
   
   Future<void> _initialize() async {
-    await _locationService.initialize();
+    if (_isRefreshing) return;
     
-    // Load locations first to ensure UI has data
-    await _loadLocations();
+    // Explicitly silence sounds again
+    try {
+      await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
+      await bg.BackgroundGeolocation.setConfig(bg.Config(
+        debug: false,
+        soundId: bg.BackgroundGeolocation.SOUND_SILENCE
+      ));
+    } catch (e) {
+      print('Error silencing sounds: $e');
+    }
     
-    // Check if tracking was active before app termination
-    await _checkTrackingStatus();
-    
-    // Listen for location updates
-    _locationService.locationStream.listen((updatedLocations) {
-      _locations = updatedLocations;
-      // Sort locations by timestamp in descending order (newest first)
-      _locations.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    try {
+      await _locationService.initialize();
+      
+      // Load locations first to ensure UI has data
+      await _loadLocations();
+      
+      // Check if tracking was active before app termination
+      await _checkTrackingStatus();
+      
+      // Listen for location updates
+      _locationService.locationStream.listen((updatedLocations) {
+        _locations = updatedLocations;
+        // Sort locations by timestamp in descending order (newest first)
+        _locations.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        notifyListeners();
+      });
+      
+      // Setup periodic refresh when app is in foreground
+      _setupPeriodicRefresh();
+    } catch (e) {
+      print('Error initializing location provider: $e');
+      _isRefreshing = false;
       notifyListeners();
-    });
-    
-    // Setup periodic refresh when app is in foreground
-    _setupPeriodicRefresh();
+    }
   }
   
   // Setup a timer to refresh locations every 30 seconds while app is in foreground

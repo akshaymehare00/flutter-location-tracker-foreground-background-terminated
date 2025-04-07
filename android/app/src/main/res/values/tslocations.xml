@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SPECIFIC CONFIG FOR TRANSISTORSOFT BACKGROUND GEOLOCATION -->
+    <bool name="com_transistorsoft_locationmanager_notification_sound_enabled">false</bool>
+    <string name="com_transistorsoft_locationmanager_notification_sound">none</string>
+    <integer name="com_transistorsoft_locationmanager_notification_priority">0</integer>
+    <bool name="com_transistorsoft_locationmanager_silent">true</bool>
+    <bool name="com_transistorsoft_locationmanager_silent_notifications">true</bool>
+    <bool name="com_transistorsoft_locationmanager_disable_sound">true</bool>
+    <bool name="com_transistorsoft_locationmanager_disable_notification">false</bool>
+</resources> 
