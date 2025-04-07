@@ -1,0 +1,197 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Flutter/Dart specific ignores
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+pubspec.lock
+.metadata
+*.g.dart
+*.freezed.dart
+
+# Android specific ignores
+**/android/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/local.properties
+**/android/gradlew
+**/android/gradlew.bat
+**/android/**/gradle-wrapper.properties
+**/android/key.properties
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+**/android/**/*.keystore
+**/android/**/*.jks
+
+# iOS specific ignores
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/*sync/
+**/ios/**/.sconsign.dblite
+**/ios/**/.tags*
+**/ios/**/.vagrant/
+**/ios/**/DerivedData/
+**/ios/**/Icon?
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/profile
+**/ios/**/xcuserdata
+**/ios/.generated/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Web related ignores
+**/web/packages
+**/web/plugins
+
+# IDEs and editors
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+**/.project
+**/.classpath
+**/.settings/
+**/.DS_Store
+
+# Project specific
+.env
+**/.env.*
+**/GoogleService-Info.plist
+**/google-services.json
+**/key.jks
+**/upload-keystore.jks
+**/secrets.properties
+
+# Logs
+*.log
+logs/
+
+# Test related files
+.test_coverage.dart
+.test_runner.dart
+coverage_badge.svg
+
+# Native Android build outputs
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# Temporary files
+**/doc/api/
+**/.temp/
+**/tmp/
+**/.history
+
+# Location API keys and secrets
+**/assets/config/api_keys.json
+**/lib/config/api_keys.dart
+
+# Firebase
+**/firebase_options.dart
+**/.firebase/
+**/firebase-debug.log
+
+# Library source folders (not needed in repository)
+flutter_background_geolocation-master/
+**/flutter_background_geolocation*/
+**/background_fetch*/
+**/geolocator*/
+
+# Generated plugin files
+**/generated_plugin_registrant.*
+
+# Mason related
+.mason/
+mason-lock.json
+
+# Fvm related
+.fvm/
+
+# Large asset files
+**/*.mp4
+**/*.mov
+**/*.gif
+**/*.avi
+**/*.zip
+**/*.rar
+**/*.7z
+
+# Caches
+.gradle/
+.dart_tool/
+**/android/.gradle/
+
+# Flutter generated icons and splashes
+**/android/app/src/main/res/drawable*/ic_launcher*.png
+**/android/app/src/main/res/mipmap*/ic_launcher*.png
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/
+
+# Personal IDE settings
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
