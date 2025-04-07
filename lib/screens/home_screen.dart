@@ -485,7 +485,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             index: index,
             total: locations.length,
             onRefresh: _refreshData,
-            onDelete: _isInSelectionMode ? null : () => _deleteLocation(location.id),
+            // onDelete: _isInSelectionMode ? null : () => _deleteLocation(location.id),
             isSelected: isSelected,
             onSelectionChanged: _isInSelectionMode 
                 ? () => _toggleLocationSelection(location.id)
