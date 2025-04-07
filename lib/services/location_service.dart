@@ -18,6 +18,11 @@ class LocationService {
   // Fixed interval of exactly 10 seconds (10000ms)
   static const int API_CALL_INTERVAL = 10000; 
   
+  // Track last sent location to prevent duplicates
+  double? _lastSentLatitude;
+  double? _lastSentLongitude;
+  int _lastSentTimestamp = 0;
+  
   // This will be used by app to tell the service if we're in foreground or not
   bool _isInForeground = true;
   set isInForeground(bool value) {
@@ -176,11 +181,13 @@ class LocationService {
       print('⏰ API timer triggered - sending locations to API');
       _sendLocationsToApi();
       
-      // Also get a new location on timer trigger
-      _getCurrentPositionAndSave();
+      // Also get a new location on timer trigger, but only if we haven't received one recently
+      if (DateTime.now().millisecondsSinceEpoch - _lastSentTimestamp > 8000) {
+        _getCurrentPositionAndSave();
+      }
     });
     
-    // Send immediately on setup
+    // Send immediately on setup, but don't get a new position yet
     _sendLocationsToApi();
   }
 
@@ -188,22 +195,49 @@ class LocationService {
   Future<void> refreshData() async {
     print('🔄 Manually refreshing location data');
     await _loadSavedLocations();
+    
+    // Only get current position during manual refresh if tracking is active
+    final state = await bg.BackgroundGeolocation.state;
+    if (state.enabled) {
+      await _getCurrentPositionAndSave(isManualRefresh: true);
+    }
+    
+    // Always send to API
     await _sendLocationsToApi();
   }
   
   // Get current location and save it
-  Future<void> _getCurrentPositionAndSave() async {
+  Future<void> _getCurrentPositionAndSave({bool isManualRefresh = false}) async {
     try {
       final location = await bg.BackgroundGeolocation.getCurrentPosition(
         samples: 1,
         persist: true,
-        extras: {'timer': true}
+        extras: {'timer': true, 'manual': isManualRefresh}
       );
       
-      print('📍 Timer location check: ${location.coords.latitude}, ${location.coords.longitude}');
+      final locationTimestamp = DateTime.now().millisecondsSinceEpoch;
+      
+      // Check if this is a duplicate location (same coordinates within a short time frame)
+      final isDuplicate = _checkIfDuplicateLocation(
+        location.coords.latitude, 
+        location.coords.longitude, 
+        locationTimestamp
+      );
+      
+      if (isDuplicate && !isManualRefresh) {
+        print('🔄 Skipping duplicate location from timer at: ${location.coords.latitude}, ${location.coords.longitude}');
+        return;
+      }
+      
+      // Update last sent location
+      _lastSentLatitude = location.coords.latitude;
+      _lastSentLongitude = location.coords.longitude;
+      _lastSentTimestamp = locationTimestamp;
+      
+      print('📍 ${isManualRefresh ? "Manual" : "Timer"} location check: ${location.coords.latitude}, ${location.coords.longitude}');
       
       final locationData = LocationData(
-        id: DateTime.now().millisecondsSinceEpoch,
+        id: locationTimestamp,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         timestamp: DateTime.now(),
@@ -211,8 +245,25 @@ class LocationService {
       
       _addLocation(locationData);
     } catch (e) {
-      print('❌ Error getting timer location: $e');
+      print('❌ Error getting ${isManualRefresh ? "manual" : "timer"} location: $e');
     }
+  }
+  
+  // Check if this location is a duplicate of the last sent location
+  bool _checkIfDuplicateLocation(double latitude, double longitude, int timestamp) {
+    if (_lastSentLatitude == null || _lastSentLongitude == null) {
+      return false;
+    }
+    
+    // Check if coordinates are the same (allowing for tiny float variations)
+    final sameCoordinates = 
+        (latitude - _lastSentLatitude!).abs() < 0.0000001 && 
+        (longitude - _lastSentLongitude!).abs() < 0.0000001;
+    
+    // Check if the timestamp is within a short window (8 seconds)
+    final shortTimeWindow = timestamp - _lastSentTimestamp < 8000;
+    
+    return sameCoordinates && shortTimeWindow;
   }
   
   // Get current location and send to API
@@ -224,10 +275,17 @@ class LocationService {
         extras: {'manual': true}
       );
       
+      final locationTimestamp = DateTime.now().millisecondsSinceEpoch;
+      
       print('📍 Manual location check: ${location.coords.latitude}, ${location.coords.longitude}');
       
+      // Update last sent location
+      _lastSentLatitude = location.coords.latitude;
+      _lastSentLongitude = location.coords.longitude;
+      _lastSentTimestamp = locationTimestamp;
+      
       final locationData = LocationData(
-        id: DateTime.now().millisecondsSinceEpoch,
+        id: locationTimestamp,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         timestamp: DateTime.now(),
@@ -247,10 +305,29 @@ class LocationService {
 
   // Handle location update
   void _onLocation(bg.Location location) async {
+    final locationTimestamp = DateTime.now().millisecondsSinceEpoch;
+    
+    // Check if this is a duplicate location
+    final isDuplicate = _checkIfDuplicateLocation(
+      location.coords.latitude, 
+      location.coords.longitude, 
+      locationTimestamp
+    );
+    
+    if (isDuplicate) {
+      print('🔄 Skipping duplicate location update at: ${location.coords.latitude}, ${location.coords.longitude}');
+      return;
+    }
+    
+    // Update last sent location
+    _lastSentLatitude = location.coords.latitude;
+    _lastSentLongitude = location.coords.longitude;
+    _lastSentTimestamp = locationTimestamp;
+    
     print('📍 Location update: ${location.coords.latitude}, ${location.coords.longitude}');
     
     final locationData = LocationData(
-      id: DateTime.now().millisecondsSinceEpoch,
+      id: locationTimestamp,
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
       timestamp: DateTime.now(),
@@ -263,30 +340,47 @@ class LocationService {
   void _onHeartbeat(bg.HeartbeatEvent event) {
     print('💓 Heartbeat received');
     
-    // Always get location on heartbeat
-    bg.BackgroundGeolocation.getCurrentPosition(
-      samples: 1,
-      persist: true,
-      extras: {'heartbeat': true}
-    ).then((bg.Location location) {
-      print('💓 Heartbeat location: ${location.coords.latitude}, ${location.coords.longitude}');
-      
-      // Create location data
-      final locationData = LocationData(
-        id: DateTime.now().millisecondsSinceEpoch,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        timestamp: DateTime.now(),
-      );
-      
-      // Add to tracked locations
-      _addLocation(locationData);
-      
-      // Always send on heartbeat
+    // Check if it's been at least 8 seconds since the last location
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final shouldGetLocation = now - _lastSentTimestamp > 8000;
+    
+    if (shouldGetLocation) {
+      // Always get location on heartbeat if it's been a while
+      bg.BackgroundGeolocation.getCurrentPosition(
+        samples: 1,
+        persist: true,
+        extras: {'heartbeat': true}
+      ).then((bg.Location location) {
+        final locationTimestamp = now;
+        
+        // Update last sent location
+        _lastSentLatitude = location.coords.latitude;
+        _lastSentLongitude = location.coords.longitude;
+        _lastSentTimestamp = locationTimestamp;
+        
+        print('💓 Heartbeat location: ${location.coords.latitude}, ${location.coords.longitude}');
+        
+        // Create location data
+        final locationData = LocationData(
+          id: locationTimestamp,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          timestamp: DateTime.now(),
+        );
+        
+        // Add to tracked locations
+        _addLocation(locationData);
+        
+        // Always send on heartbeat
+        _sendLocationsToApi();
+      }).catchError((error) {
+        print('❌ Error getting heartbeat location: $error');
+      });
+    } else {
+      print('💓 Heartbeat received, but skipping location (too soon after last update)');
+      // Always send any pending locations on heartbeat
       _sendLocationsToApi();
-    }).catchError((error) {
-      print('❌ Error getting heartbeat location: $error');
-    });
+    }
     
     // Always retry failed requests on heartbeat
     _apiService.retryFailedRequests();
@@ -340,11 +434,18 @@ class LocationService {
 
   // Add location to history and update stream
   void _addLocation(LocationData location) {
-    _locationHistory.add(location);
+    // Check for existing location with same ID to avoid duplicates
+    final existingIndex = _locationHistory.indexWhere((loc) => loc.id == location.id);
+    if (existingIndex != -1) {
+      print('📝 Location with ID ${location.id} already exists, updating');
+      _locationHistory[existingIndex] = location;
+    } else {
+      _locationHistory.add(location);
+      print('📝 Location added: ${location.latitude}, ${location.longitude}');
+    }
+    
     _locationStreamController.add(_locationHistory);
     _saveLocations();
-    
-    print('📝 Location added: ${location.latitude}, ${location.longitude}');
   }
 
   // Send pending locations to API
@@ -371,7 +472,7 @@ class LocationService {
     if (batchSuccess) {
       // Mark all as synced
       for (final location in locationsToSend) {
-        final index = _locationHistory.indexOf(location);
+        final index = _locationHistory.indexWhere((loc) => loc.id == location.id);
         if (index != -1) {
           _locationHistory[index] = LocationData(
             id: location.id,
@@ -427,11 +528,21 @@ class LocationService {
         
         // Only replace if we have data to preserve any new locations
         if (locations.isNotEmpty) {
-          _locationHistory.clear();
-          _locationHistory.addAll(locations);
+          // Merge with existing locations (keep only unique IDs)
+          final existingIds = Set.from(_locationHistory.map((loc) => loc.id));
+          final newLocations = locations.where((loc) => !existingIds.contains(loc.id)).toList();
+          
+          if (newLocations.isNotEmpty) {
+            _locationHistory.addAll(newLocations);
+            print('📝 Added ${newLocations.length} new locations from storage');
+          }
+          
+          // Sort locations by timestamp
+          _locationHistory.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          
           _locationStreamController.add(_locationHistory);
           
-          print('📝 Loaded ${locations.length} locations from storage');
+          print('📝 Loaded ${locations.length} locations from storage, merged ${newLocations.length} new ones');
         }
       }
     } catch (e) {
@@ -461,6 +572,38 @@ class LocationService {
       if (event.name == 'location') {
         // Handle location event
         final bg.Location location = event.event;
+        
+        // Get previous location data, if any
+        String? lastLocationJson = prefs.getString('last_location_headless');
+        double? lastLat;
+        double? lastLng;
+        int? lastTimestamp;
+        
+        if (lastLocationJson != null) {
+          Map<String, dynamic> lastLocation = jsonDecode(lastLocationJson);
+          lastLat = double.parse(lastLocation['latitude']);
+          lastLng = double.parse(lastLocation['longitude']);
+          lastTimestamp = lastLocation['timestamp'];
+          
+          // Check if this is a duplicate location (same coordinates within 8 seconds)
+          bool isDuplicate = (lastLat - location.coords.latitude).abs() < 0.0000001 && 
+                            (lastLng - location.coords.longitude).abs() < 0.0000001 && 
+                            (now - lastTimestamp!) < 8000;
+                            
+          if (isDuplicate) {
+            print('🔄 Skipping duplicate headless location: ${location.coords.latitude}, ${location.coords.longitude}');
+            return;
+          }
+        }
+        
+        // Save this location as the last one
+        Map<String, dynamic> currentLocation = {
+          'latitude': location.coords.latitude.toString(),
+          'longitude': location.coords.longitude.toString(),
+          'timestamp': now
+        };
+        await prefs.setString('last_location_headless', jsonEncode(currentLocation));
+        
         print('📍 Headless location: ${location.coords.latitude}, ${location.coords.longitude}');
         
         // Create location data
@@ -479,7 +622,15 @@ class LocationService {
               .map((json) => LocationData.fromJson(json))
               .toList();
           
-          locations.add(locationData);
+          // Check if this location ID already exists
+          final existingIndex = locations.indexWhere((loc) => loc.id == locationData.id);
+          if (existingIndex != -1) {
+            // Update existing location
+            locations[existingIndex] = locationData;
+          } else {
+            // Add new location
+            locations.add(locationData);
+          }
           
           // Only keep most recent 100 locations
           final locationsToSave = locations.length > 100 
@@ -575,34 +726,54 @@ class LocationService {
           }
         }
           
-        // Also get a new location on heartbeat
-        try {
-          bg.BackgroundGeolocation.getCurrentPosition(
-            samples: 1,
-            persist: true,
-            extras: {'heartbeat': true}
-          ).then((bg.Location location) {
-            final locationData = LocationData(
-              id: DateTime.now().millisecondsSinceEpoch,
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              timestamp: DateTime.now(),
-            );
-            
-            // Save the new location to storage
-            final updatedLocations = [...locations, locationData];
-            final locationsToSave = updatedLocations.length > 100 
-                ? updatedLocations.sublist(updatedLocations.length - 100) 
-                : updatedLocations;
-                
-            prefs.setString('locations', jsonEncode(locationsToSave.map((loc) => loc.toJson()).toList()));
-            print('💓 Heartbeat location saved in headless mode');
-            
-            // Send the new location immediately
-            apiService.sendLocationData(locationData);
-          });
-        } catch (e) {
-          print('❌ Error getting heartbeat location in headless mode: $e');
+        // Get last location timestamp
+        String? lastLocationJson = prefs.getString('last_location_headless');
+        int lastTimestamp = 0;
+        if (lastLocationJson != null) {
+          Map<String, dynamic> lastLocation = jsonDecode(lastLocationJson);
+          lastTimestamp = lastLocation['timestamp'];
+        }
+        
+        // Only get a new location if it's been at least 8 seconds
+        if (now - lastTimestamp >= 8000) {
+          try {
+            bg.BackgroundGeolocation.getCurrentPosition(
+              samples: 1,
+              persist: true,
+              extras: {'heartbeat': true}
+            ).then((bg.Location location) {
+              final locationData = LocationData(
+                id: now,
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                timestamp: DateTime.now(),
+              );
+              
+              // Save this location as the last one
+              Map<String, dynamic> currentLocation = {
+                'latitude': location.coords.latitude.toString(),
+                'longitude': location.coords.longitude.toString(),
+                'timestamp': now
+              };
+              prefs.setString('last_location_headless', jsonEncode(currentLocation));
+              
+              // Save the new location to storage
+              final updatedLocations = [...locations, locationData];
+              final locationsToSave = updatedLocations.length > 100 
+                  ? updatedLocations.sublist(updatedLocations.length - 100) 
+                  : updatedLocations;
+                  
+              prefs.setString('locations', jsonEncode(locationsToSave.map((loc) => loc.toJson()).toList()));
+              print('💓 Heartbeat location saved in headless mode');
+              
+              // Send the new location immediately
+              apiService.sendLocationData(locationData);
+            });
+          } catch (e) {
+            print('❌ Error getting heartbeat location in headless mode: $e');
+          }
+        } else {
+          print('💓 Skipping heartbeat location (too soon after last update)');
         }
       } else if (event.name == 'connectivitychange') {
         // Network connectivity changed - retry failed requests

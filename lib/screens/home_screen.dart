@@ -49,23 +49,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
-    // Update the service when app lifecycle changes
-    switch (state) {
-      case AppLifecycleState.resumed:
-        LocationService.instance.isInForeground = true;
-        // Force refresh data when app is resumed
-        _refreshData();
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-        LocationService.instance.isInForeground = false;
-        break;
+    // Update the foreground status for the location service
+    if (state == AppLifecycleState.resumed) {
+      LocationService.instance.isInForeground = true;
+      // Refresh data when coming to foreground
+      _refreshData();
+    } else if (state == AppLifecycleState.paused) {
+      LocationService.instance.isInForeground = false;
     }
   }
   
-  // Refresh location data
   Future<void> _refreshData() async {
     if (_isRefreshing) return;
     
@@ -73,155 +66,310 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       _isRefreshing = true;
     });
     
-    try {
-      await LocationService.instance.refreshData();
-      
-      // Get a new location point
-      await LocationService.instance.getCurrentLocation();
-    } catch (e) {
-      print('❌ Error refreshing data: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-        });
-      }
-    }
+    final provider = Provider.of<LocationProvider>(context, listen: false);
+    await provider.refreshData();
+    
+    setState(() {
+      _isRefreshing = false;
+    });
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Consumer<LocationProvider>(
-          builder: (context, provider, child) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Location Tracker'),
-                const SizedBox(width: 10),
-                if (provider.locations.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      '${provider.locations.length}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+  
+  Future<void> _confirmStopTracking(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Stop Tracking?'),
+        content: const Text('Are you sure you want to stop location tracking?'),
         actions: [
-          // Refresh button
-          IconButton(
-            icon: _isRefreshing 
-                ? const SizedBox(
-                    width: 20, 
-                    height: 20, 
-                    child: CircularProgressIndicator(strokeWidth: 2)
-                  )
-                : const Icon(Icons.refresh),
-            onPressed: _isRefreshing ? null : _refreshData,
-            tooltip: 'Refresh Data',
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
           ),
-          // Info button to show tracking status
-          Consumer<LocationProvider>(
-            builder: (context, provider, child) {
-              return IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: () {
-                  _showTrackingInfo(context, provider.isTracking, provider.locations.length);
-                },
-                tooltip: 'Tracking Info',
-              );
-            },
-          ),
-          // Legend info button to explain sync status
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () {
-              _showLegendInfo(context);
-            },
-            tooltip: 'Status Legend',
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('STOP'),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: _buildLocationsList(),
+    );
+    
+    if (result == true) {
+      final provider = Provider.of<LocationProvider>(context, listen: false);
+      await provider.stopTracking();
+    }
+  }
+  
+  Widget _buildDashboardHeader(BuildContext context, LocationProvider provider) {
+    final int totalCount = provider.totalLocations;
+    final int pendingCount = provider.pendingLocations;
+    final int syncedCount = provider.syncedLocations;
+    
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
-      floatingActionButton: Consumer<LocationProvider>(
-        builder: (context, provider, child) {
-          return FloatingActionButton.extended(
-            onPressed: () {
-              if (provider.isTracking) {
-                _showStopTrackingConfirmation(context, provider);
-              } else {
-                provider.startTracking();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Location tracking started. Will continue in background.'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              }
-            },
-            label: Text(provider.isTracking ? 'Stop Tracking' : 'Start Tracking'),
-            icon: Icon(
-              provider.isTracking ? Icons.pause : Icons.play_arrow,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Location Stats',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            backgroundColor: provider.isTracking ? Colors.red : Colors.blue,
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  context, 
+                  'Total', 
+                  totalCount.toString(),
+                  Icons.pin_drop,
+                  Colors.blue
+                ),
+                _buildStatItem(
+                  context, 
+                  'Synced', 
+                  syncedCount.toString(),
+                  Icons.cloud_done,
+                  Colors.green
+                ),
+                _buildStatItem(
+                  context, 
+                  'Pending', 
+                  pendingCount.toString(),
+                  Icons.cloud_upload,
+                  Colors.orange
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildStatItem(BuildContext context, String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationsList(BuildContext context, LocationProvider provider) {
+    final locations = provider.locations;
+    
+    if (locations.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.location_off, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'No locations tracked yet',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _refreshData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 100), // Add padding for FAB
+        itemCount: locations.length,
+        itemBuilder: (context, index) {
+          return LocationCard(
+            location: locations[index],
+            index: index,
+            total: locations.length,
+            onRefresh: _refreshData,
           );
         },
       ),
     );
   }
 
-  void _showStopTrackingConfirmation(BuildContext context, LocationProvider provider) {
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<LocationProvider>(context);
+    final isTracking = provider.isTracking;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const Text('Location Tracker'),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: isTracking ? Colors.green : Colors.grey,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${provider.totalLocations} locations',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (_isRefreshing)
+            const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+            tooltip: 'Refresh data',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Dashboard stats card
+          _buildDashboardHeader(context, provider),
+          
+          // Tracking status
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  isTracking ? Icons.gps_fixed : Icons.gps_off,
+                  color: isTracking ? Colors.green : Colors.grey,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isTracking 
+                      ? 'Tracking active - updates every 10 seconds' 
+                      : 'Tracking inactive',
+                  style: TextStyle(
+                    color: isTracking ? Colors.green : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Locations list
+          Expanded(
+            child: _buildLocationsList(context, provider),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          if (isTracking) {
+            _confirmStopTracking(context);
+          } else {
+            provider.startTracking();
+          }
+        },
+        backgroundColor: isTracking ? Colors.red : Colors.green,
+        icon: Icon(isTracking ? Icons.stop : Icons.play_arrow),
+        label: Text(isTracking ? 'Stop Tracking' : 'Start Tracking'),
+      ),
+    );
+  }
+
+  void _showTrackingInfo(BuildContext context, bool isTracking, int locationCount) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Stop Location Tracking?'),
-          content: const Text(
-            'This will completely stop background location tracking. '
-            'Are you sure you want to stop?'
+          title: const Text('Background Tracking Info'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Current Status: ${isTracking ? "ACTIVE" : "INACTIVE"}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isTracking ? Colors.green : Colors.red,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tracked Locations: $locationCount',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'This app tracks your location every 10 seconds and sends updates to the server. '
+                'Tracking continues even when the app is closed or in the background.',
+              ),
+              const SizedBox(height: 16),
+              if (isTracking)
+                const Text(
+                  'Note: You can also stop tracking from the notification.',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
               },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-                provider.stopTracking();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Location tracking stopped'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text('Stop Tracking'),
+              child: const Text('OK'),
             ),
           ],
         );
       },
     );
   }
-  
+
   void _showLegendInfo(BuildContext context) {
     showDialog(
       context: context,
@@ -289,137 +437,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: const Text('Got it'),
             ),
           ],
-        );
-      },
-    );
-  }
-
-  void _showTrackingInfo(BuildContext context, bool isTracking, int locationCount) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Background Tracking Info'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Current Status: ${isTracking ? "ACTIVE" : "INACTIVE"}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isTracking ? Colors.green : Colors.red,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Tracked Locations: $locationCount',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'This app tracks your location every 10 seconds and sends updates to the server. '
-                'Tracking continues even when the app is closed or in the background.',
-              ),
-              const SizedBox(height: 16),
-              if (isTracking)
-                const Text(
-                  'Note: You can also stop tracking from the notification.',
-                  style: TextStyle(fontStyle: FontStyle.italic),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildLocationsList() {
-    return Consumer<LocationProvider>(
-      builder: (context, provider, child) {
-        if (provider.locations.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.location_searching,
-                  size: 80,
-                  color: Colors.grey,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No location data yet',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  provider.isTracking
-                      ? 'Tracking is active and will continue in background'
-                      : 'Press the button below to start tracking',
-                  textAlign: TextAlign.center,
-                ),
-                if (provider.isTracking) 
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text(
-                      'You can close the app and tracking will continue',
-                      style: TextStyle(fontStyle: FontStyle.italic),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                if (_isRefreshing)
-                  const CircularProgressIndicator()
-                else
-                  ElevatedButton.icon(
-                    onPressed: _refreshData,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh Data'),
-                  ),
-              ],
-            ),
-          );
-        }
-
-        // Reverse the list to show newest at top
-        final locations = provider.locations.reversed.toList();
-
-        return AnimatedList(
-          initialItemCount: locations.length,
-          itemBuilder: (context, index, animation) {
-            // Get the location for this index
-            final location = locations[index];
-            
-            // Custom fade+slide animation
-            final curvedAnimation = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOut,
-            );
-            
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, -0.5),
-                end: const Offset(0, 0),
-              ).animate(curvedAnimation),
-              child: FadeTransition(
-                opacity: Tween<double>(begin: 0, end: 1).animate(curvedAnimation),
-                child: LocationCard(
-                  location: location,
-                  index: index, 
-                  total: locations.length,
-                ),
-              ),
-            );
-          },
         );
       },
     );
