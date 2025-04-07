@@ -787,4 +787,46 @@ class LocationService {
       print('❌ Error in headless task: $e');
     }
   }
+
+  // Delete specific locations
+  Future<void> deleteLocations(List<int> locationIds) async {
+    if (locationIds.isEmpty) return;
+    
+    try {
+      // Remove from location history in memory
+      _locationHistory.removeWhere((loc) => locationIds.contains(loc.id));
+      
+      // Update stream
+      _locationStreamController.add(_locationHistory);
+      
+      // Save updated list to storage
+      await _saveLocations();
+      
+      print('🗑️ Deleted ${locationIds.length} locations');
+    } catch (e) {
+      print('❌ Error deleting locations: $e');
+    }
+  }
+  
+  // Delete all locations
+  Future<void> deleteAllLocations() async {
+    try {
+      // Clear location history
+      _locationHistory.clear();
+      
+      // Update stream
+      _locationStreamController.add(_locationHistory);
+      
+      // Save updated list to storage
+      await _saveLocations();
+      
+      // Clear shared preferences data
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('locations', '[]');
+      
+      print('🗑️ All locations deleted');
+    } catch (e) {
+      print('❌ Error deleting all locations: $e');
+    }
+  }
 }

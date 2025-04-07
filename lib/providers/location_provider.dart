@@ -21,8 +21,8 @@ class LocationProvider extends ChangeNotifier {
   
   // Statistics
   int get totalLocations => _locations.length;
-  int get syncedLocations => _locations.where((loc) => loc.isSynced).length;
-  int get pendingLocations => _locations.where((loc) => !loc.isSynced).length;
+  int get syncedCount => _locations.where((location) => location.isSynced).length;
+  int get pendingCount => _locations.where((location) => !location.isSynced).length;
   
   LocationProvider() {
     _initialize();
@@ -183,13 +183,41 @@ class LocationProvider extends ChangeNotifier {
       }
       
       // Get unsent locations from main storage
-      int unsentCount = pendingLocations;
+      int unsentCount = pendingCount;
       
       // Return total
       return failedCount + batchCount + unsentCount;
     } catch (e) {
       print('❌ Error getting pending locations count: $e');
       return 0;
+    }
+  }
+  
+  // Delete specified locations
+  Future<void> deleteLocations(List<int> locationIds) async {
+    try {
+      await _locationService.deleteLocations(locationIds);
+      
+      // Refresh locations after deletion
+      await refreshData();
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting locations: $e');
+    }
+  }
+  
+  // Delete all locations
+  Future<void> deleteAllLocations() async {
+    try {
+      await _locationService.deleteAllLocations();
+      
+      // Refresh locations after deletion
+      await refreshData();
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting all locations: $e');
     }
   }
   

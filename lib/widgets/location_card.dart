@@ -7,6 +7,9 @@ class LocationCard extends StatelessWidget {
   final int index;
   final int total;
   final VoidCallback? onRefresh;
+  final VoidCallback? onDelete;
+  final bool isSelected;
+  final VoidCallback? onSelectionChanged;
   
   const LocationCard({
     Key? key,
@@ -14,6 +17,9 @@ class LocationCard extends StatelessWidget {
     required this.index,
     required this.total,
     this.onRefresh,
+    this.onDelete,
+    this.isSelected = false,
+    this.onSelectionChanged,
   }) : super(key: key);
 
   @override
@@ -21,7 +27,7 @@ class LocationCard extends StatelessWidget {
     final formattedDate = DateFormat('MMM dd, yyyy').format(location.timestamp);
     final formattedTime = DateFormat('hh:mm:ss a').format(location.timestamp);
     
-    // Determine sync status
+    // Determine sync status and colors
     final bool isSynced = location.isSynced;
     final Color statusColor = isSynced 
         ? Colors.green 
@@ -30,18 +36,27 @@ class LocationCard extends StatelessWidget {
         ? Colors.green.shade200 
         : (location.errorMessage != null ? Colors.red.shade200 : Colors.orange.shade200);
     
+    // Selection mode visual enhancements
+    final Color cardColor = isSelected ? Colors.blue.withOpacity(0.1) : Colors.white;
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 4,
+      color: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: borderColor,
-          width: 1,
+          color: isSelected ? Colors.blue : borderColor,
+          width: isSelected ? 2 : 1,
         ),
       ),
       child: InkWell(
-        onTap: onRefresh,
+        onTap: onSelectionChanged != null 
+            ? onSelectionChanged 
+            : onRefresh,
+        onLongPress: onSelectionChanged != null && !isSelected
+            ? onSelectionChanged
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -51,24 +66,75 @@ class LocationCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Location index
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '#${total - index}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  // Location index with selection indicator
+                  Row(
+                    children: [
+                      if (onSelectionChanged != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: onSelectionChanged,
+                              borderRadius: BorderRadius.circular(24),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Icon(
+                                  isSelected 
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color: isSelected ? Colors.blue : Colors.grey,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '#${total - index}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                   
-                  // Sync status indicator with better visual
-                  _buildSyncStatus(context, statusColor),
+                  // Actions row
+                  Row(
+                    children: [
+                      // Sync status indicator
+                      _buildSyncStatus(context, statusColor),
+                      
+                      // Show delete button unless in selection mode
+                      if (onDelete != null) 
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: ElevatedButton.icon(
+                            onPressed: onDelete,
+                            icon: const Icon(Icons.delete, size: 16),
+                            label: const Text('Delete'),
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.red,
+                              elevation: 2,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: const Size(80, 30),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
               const Divider(height: 16),
