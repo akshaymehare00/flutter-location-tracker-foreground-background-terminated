@@ -28,29 +28,6 @@
         <!-- Background Geolocation Debug Mode (stripped for release builds) -->
         <meta-data android:name="com.transistorsoft.locationmanager.license" android:value="YOUR_LICENSE_KEY_HERE" />
         
-        <!-- Add meta-data for notification sound disabling -->
-        <meta-data
-            android:name="com.transistorsoft.locationmanager.notification.silent"
-            android:value="true" />
-            
-        <!-- Additional sound disabling metadata -->
-        <meta-data
-            android:name="com.transistorsoft.locationmanager.notification.disable_sound"
-            android:value="true" />
-            
-        <meta-data
-            android:name="com.transistorsoft.locationmanager.use_silent_notifications"
-            android:value="true" />
-        
-        <meta-data
-            android:name="com.transistorsoft.locationmanager.notification.sound_file"
-            android:value="silent" />
-            
-        <!-- Notification priority - set to MIN to reduce importance -->
-        <meta-data
-            android:name="com.transistorsoft.locationmanager.notification.priority"
-            android:value="PRIORITY_MIN" />
-        
         <!-- Ensure notification channels have no sound -->
         <meta-data
             android:name="com.transistorsoft.locationmanager.notification.channels"

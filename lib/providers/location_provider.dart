@@ -31,15 +31,13 @@ class LocationProvider extends ChangeNotifier {
   Future<void> _initialize() async {
     if (_isRefreshing) return;
     
-    // Explicitly silence sounds again
+    // Explicitly disable debug mode to prevent sounds
     try {
-      await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
       await bg.BackgroundGeolocation.setConfig(bg.Config(
-        debug: false,
-        soundId: bg.BackgroundGeolocation.SOUND_SILENCE
+        debug: false
       ));
     } catch (e) {
-      print('Error silencing sounds: $e');
+      print('Error disabling debug mode: $e');
     }
     
     try {

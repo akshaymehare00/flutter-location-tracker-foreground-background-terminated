@@ -24,29 +24,6 @@ class MainActivity : FlutterActivity() {
         if (notificationManager.isNotificationPolicyAccessGranted) {
             notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE)
         }
-        
-        // Disable all sounds for background geolocation plugin
-        try {
-            // Set plugin-specific sound settings to silent
-            val locationManager = Class.forName("com.transistorsoft.locationmanager.LocationManager")
-            val getInstance = locationManager.getMethod("getInstance", Context::class.java)
-            val instance = getInstance.invoke(null, this)
-            
-            // Use reflection to set sound to false
-            val configClass = Class.forName("com.transistorsoft.locationmanager.config.Config")
-            val config = configClass.getConstructor().newInstance()
-            
-            // Set sound to false
-            val soundField = configClass.getField("sound")
-            soundField.set(config, false)
-            
-            // Apply the config
-            val setConfigMethod = locationManager.getMethod("setConfig", configClass)
-            setConfigMethod.invoke(instance, config)
-        } catch (e: Exception) {
-            // Log error but continue
-            println("Error disabling background geolocation sounds: ${e.message}")
-        }
     }
     
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -57,6 +34,10 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "MainActivity resumed")
+        
+        // Ensure notifications remain silent when app is resumed
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0, 0)
     }
     
     override fun onDestroy() {

@@ -8,21 +8,14 @@ import 'services/location_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // CRITICAL: Silence all sounds before configuring anything
-  await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
-  
-  // Quick config to disable sounds immediately
+  // Disable debug mode - this is critical for sound prevention
   await bg.BackgroundGeolocation.setConfig(bg.Config(
-    debug: false, // CRITICAL - debug mode causes sounds
+    debug: false,
     logLevel: bg.Config.LOG_LEVEL_OFF,
-    soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
     stopOnTerminate: false,
     startOnBoot: true,
     enableHeadless: true
   ));
-  
-  // Play silence sound again to ensure no sound plays
-  await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
   
   // Register headless task handler for background/terminated mode
   bg.BackgroundGeolocation.registerHeadlessTask(LocationService.headlessTask);

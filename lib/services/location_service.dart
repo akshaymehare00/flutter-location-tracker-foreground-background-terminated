@@ -47,15 +47,10 @@ class LocationService {
   Future<void> initialize() async {
     print('📱 Initializing location service');
     
-    // CRUCIAL: First silence all sounds before anything else
-    await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
-    
-    // CRUCIAL: Initialize with all sounds fully disabled
+    // Initialize with debug fully disabled to prevent sounds
     await bg.BackgroundGeolocation.ready(bg.Config(
-      // Completely disable debug - debug sounds are a major source of the sound issue
+      // Completely disable debug - prevents sounds
       debug: false,
-      // Disable all sounds
-      soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
       
       // Common config
       desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
@@ -72,37 +67,26 @@ class LocationService {
       enableHeadless: true,
       heartbeatInterval: 60, // 1 minute
       
-      // All debug off - crucial to prevent sounds
-      debug: false,
+      // All debug off - crucial for preventing sounds
       logLevel: bg.Config.LOG_LEVEL_OFF,
       
-      // Sound disabling
+      // Sound disabling - using only supported parameters
       disableElasticity: true,
       disableMotionActivityUpdates: true,
       pausesLocationUpdatesAutomatically: false,
       
-      // Notification with sound explicitly disabled
+      // Notification with minimal configuration
       notification: bg.Notification(
         title: "Location Tracking",
         text: "Tracking your location in background",
         priority: bg.Config.NOTIFICATION_PRIORITY_MIN,
         channelName: "Background Location",
         channelId: "background_location",
-        sticky: true,
-        sound: false
+        sticky: true
       ),
       
-      // Foreground service notification with sound disabled
-      foregroundService: true,
-      foregroundServiceNotification: bg.Notification(
-        title: "Location Tracking",
-        text: "Tracking your location",
-        priority: bg.Config.NOTIFICATION_PRIORITY_MIN,
-        channelName: "Foreground Location",
-        channelId: "foreground_location",
-        sticky: true,
-        sound: false
-      )
+      // Foreground service enabled
+      foregroundService: true
     ));
     
     // Listen to events - register listeners after configuration
@@ -115,14 +99,10 @@ class LocationService {
     bg.BackgroundGeolocation.onConnectivityChange(_onConnectivityChange);
     bg.BackgroundGeolocation.onNotificationAction(_onNotificationAction);
 
-    // Double-ensure sound is silenced
+    // Double-ensure debug is disabled
     await bg.BackgroundGeolocation.setConfig(bg.Config(
-      soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
       debug: false
     ));
-    
-    // Explicitly silence again
-    await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
 
     // Load saved locations
     await _loadSavedLocations();
@@ -139,29 +119,14 @@ class LocationService {
   Future<void> startTracking() async {
     final state = await bg.BackgroundGeolocation.state;
     
-    // Always silence first
-    await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
-    
     if (!state.enabled) {
-      // Silence sound again
+      // Ensure debug is disabled before starting
       await bg.BackgroundGeolocation.setConfig(bg.Config(
-        soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
         debug: false,
-        logLevel: bg.Config.LOG_LEVEL_OFF,
-        foregroundServiceNotification: bg.Notification(
-          sound: false,
-          priority: bg.Config.NOTIFICATION_PRIORITY_MIN
-        ),
-        notification: bg.Notification(
-          sound: false,
-          priority: bg.Config.NOTIFICATION_PRIORITY_MIN
-        )
+        logLevel: bg.Config.LOG_LEVEL_OFF
       ));
       
-      // Play silence again
-      await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
-      
-      // Start tracking - IMPORTANT: Start tracking AFTER silencing
+      // Start tracking
       await bg.BackgroundGeolocation.start();
       print('📱 Location tracking started - sound disabled');
       
@@ -174,12 +139,8 @@ class LocationService {
     } else {
       // Ensure sounds remain silenced for running service
       await bg.BackgroundGeolocation.setConfig(bg.Config(
-        soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
         debug: false
       ));
-      
-      // Play silence once more
-      await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
       
       print('📱 Location tracking was already running - sound disabled');
       
@@ -596,17 +557,10 @@ class LocationService {
     final String eventName = event.name;
     print('📱 [Headless] $eventName');
     
-    // CRITICAL: Disable sounds in headless task
-    await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
+    // Disable debug to prevent sounds
     await bg.BackgroundGeolocation.setConfig(bg.Config(
-      soundId: bg.BackgroundGeolocation.SOUND_SILENCE,
-      debug: false,
-      notification: bg.Notification(sound: false),
-      foregroundServiceNotification: bg.Notification(sound: false)
+      debug: false
     ));
-    
-    // Additional silence for debug sounds
-    await bg.BackgroundGeolocation.playSound(bg.BackgroundGeolocation.SOUND_SILENCE);
     
     // Process location event
     if (eventName == bg.Event.LOCATION) {
